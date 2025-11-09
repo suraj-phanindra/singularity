@@ -1,0 +1,31 @@
+# Python virtual environment (root level if created there)
+Lib/
+Scripts/
+Include/
+pyvenv.cfg
+
+# Backend - Python
+backend/venv/
+backend/env/
+backend/ENV/
+backend/.env
+backend/__pycache__/
+backend/**/*.py[cod]
+backend/**/*$py.class
+backend/**/*.so
+backend/.Python
+
+# Extension - Node.js
+extension/node_modules/
+extension/.env
+extension/.env.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

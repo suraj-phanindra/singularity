@@ -1,0 +1,1 @@
+const t={"claude.ai":{inputSelector:'div[contenteditable="true"]',messageContainerSelector:'div[class*="font-claude-message"]',submitButtonSelector:'button[aria-label*="Send"]'},"chat.openai.com":{inputSelector:"#prompt-textarea",messageContainerSelector:"div[data-message-author-role]",submitButtonSelector:'button[data-testid="send-button"]'}};export{t as P};

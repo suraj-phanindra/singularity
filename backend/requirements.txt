@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+anthropic
+llama-index
+llama-index-llms-anthropic
+llama-index-embeddings-voyageai
+voyageai
+python-dotenv
+pydantic
+httpx
+numpy
