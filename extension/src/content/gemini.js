@@ -1,7 +1,13 @@
-import { PLATFORMS } from '../utils/platform-config.js';
-
+// Content script for Gemini - self-contained (no imports)
 const PLATFORM_NAME = 'Gemini';
-const config = PLATFORMS['gemini.google.com'];
+const config = {
+  name: 'Gemini',
+  inputSelector: 'div[contenteditable="true"]',
+  messageContainerSelector: 'message-content',
+  userMessageSelector: '.user-message',
+  assistantMessageSelector: '.model-message',
+  submitButtonSelector: 'button[aria-label*="Send"]',
+};
 
 console.log('[Singularity] Content script loaded for Gemini');
 

@@ -1,7 +1,13 @@
-import { PLATFORMS } from '../utils/platform-config.js';
-
+// Content script for ChatGPT - self-contained (no imports)
 const PLATFORM_NAME = 'ChatGPT';
-const config = PLATFORMS['chat.openai.com'];
+const config = {
+  name: 'ChatGPT',
+  inputSelector: '#prompt-textarea',
+  messageContainerSelector: 'div[data-message-author-role]',
+  userMessageSelector: 'div[data-message-author-role="user"]',
+  assistantMessageSelector: 'div[data-message-author-role="assistant"]',
+  submitButtonSelector: 'button[data-testid="send-button"]',
+};
 
 console.log('[Singularity] Content script loaded for ChatGPT');
 
@@ -76,58 +82,112 @@ async function extractNewMessages(allMessages) {
 
 // Intercept and enhance user input
 function setupInputInterception() {
+  let isProcessing = false;
+
+  const interceptSubmit = async (event) => {
+    console.log('[Singularity] interceptSubmit called, enabled:', isEnabled, 'processing:', isProcessing);
+
+    if (!isEnabled || isProcessing) return;
+
+    const inputField = document.querySelector(config.inputSelector);
+    console.log('[Singularity] Input field found:', !!inputField);
+    if (!inputField) return;
+
+    const userMessage = inputField.value || inputField.textContent;
+    console.log('[Singularity] User message:', userMessage);
+    if (!userMessage || userMessage.trim().length === 0) return;
+
+    // Check if already enhanced
+    if (userMessage.includes('[Context from other AI conversations:')) return;
+
+    console.log('[Singularity] Intercepting ChatGPT message:', userMessage);
+
+    isProcessing = true;
+
+    // Get relevant context from other platforms
+    try {
+      const response = await chrome.runtime.sendMessage({
+        action: 'getRelevantContext',
+        message: userMessage,
+        platform: PLATFORM_NAME
+      });
+
+      console.log('[Singularity] Got response:', response);
+
+      if (response && response.context && response.context.length > 0) {
+        console.log('[Singularity] Injecting context:', response.context);
+
+        // Prevent the original submit
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+
+        const contextPrefix = `[Context from other AI conversations: ${response.context.join('; ')}]\n\n`;
+        const enhancedMessage = contextPrefix + userMessage;
+
+        // Set the enhanced message
+        // ChatGPT uses a contenteditable div, need to set innerHTML/textContent
+        inputField.textContent = '';
+        inputField.innerText = enhancedMessage;
+
+        // Focus the field
+        inputField.focus();
+
+        // Trigger input events for React
+        inputField.dispatchEvent(new Event('input', { bubbles: true }));
+        inputField.dispatchEvent(new Event('change', { bubbles: true }));
+
+        // Re-submit after delay to allow React to update
+        setTimeout(() => {
+          isProcessing = false;
+
+          // Find and click the submit button
+          const submitBtn = document.querySelector(config.submitButtonSelector);
+          if (submitBtn && !submitBtn.disabled) {
+            submitBtn.click();
+          }
+        }, 500);
+      } else {
+        isProcessing = false;
+        console.log('[Singularity] No context to inject');
+      }
+    } catch (error) {
+      isProcessing = false;
+      console.error('[Singularity] Failed to inject context:', error);
+    }
+  };
+
+  // Intercept Enter key on input field
   const inputObserver = new MutationObserver(() => {
     const inputField = document.querySelector(config.inputSelector);
-    const submitButton = document.querySelector(config.submitButtonSelector);
 
-    if (inputField && submitButton && !submitButton.dataset.singularityHooked) {
-      submitButton.dataset.singularityHooked = 'true';
+    if (inputField && !inputField.dataset.singularityHooked) {
+      inputField.dataset.singularityHooked = 'true';
 
-      submitButton.addEventListener('click', async (event) => {
-        if (!isEnabled) return;
+      inputField.addEventListener('keydown', (event) => {
+        // Check if Enter was pressed without Shift (Shift+Enter is for new line)
+        if (event.key === 'Enter' && !event.shiftKey && !isProcessing) {
+          // Get message immediately
+          const userMessage = inputField.value || inputField.textContent;
 
-        const userMessage = inputField.value || inputField.textContent;
-        if (!userMessage || userMessage.trim().length === 0) return;
-
-        console.log('[Singularity] User is sending:', userMessage);
-
-        // Get relevant context from other platforms
-        try {
-          const response = await chrome.runtime.sendMessage({
-            action: 'getRelevantContext',
-            message: userMessage,
-            platform: PLATFORM_NAME
-          });
-
-          if (response && response.context && response.context.length > 0) {
-            console.log('[Singularity] Injecting context:', response.context);
-
-            // Inject context into the message
-            event.preventDefault();
-            event.stopPropagation();
-
-            const contextPrefix = `[Context from other AI conversations: ${response.context.join('; ')}]\n\n`;
-            const enhancedMessage = contextPrefix + userMessage;
-
-            // Set the enhanced message
-            if (inputField.tagName === 'TEXTAREA') {
-              inputField.value = enhancedMessage;
-            } else {
-              inputField.textContent = enhancedMessage;
-            }
-
-            // Trigger input event to update React state
-            inputField.dispatchEvent(new Event('input', { bubbles: true }));
-
-            // Click submit again after a brief delay
-            setTimeout(() => {
-              submitButton.click();
-            }, 100);
+          // Check if already enhanced
+          if (!userMessage || userMessage.includes('[Context from other AI conversations:')) {
+            return;
           }
-        } catch (error) {
-          console.error('[Singularity] Failed to inject context:', error);
+
+          console.log('[Singularity] Blocking Enter, will enhance and resubmit');
+
+          // Block this Enter keypress
+          event.preventDefault();
+          event.stopPropagation();
+          event.stopImmediatePropagation();
+
+          // Now do the async work
+          interceptSubmit(event);
         }
-      }, { capture: true, once: true });
+      }, true);
+
+      console.log('[Singularity] Hooked ChatGPT input field');
     }
   });
 

@@ -2,14 +2,9 @@ import json
 import time
 from typing import List, Dict
 from anthropic import Anthropic
-from llama_index.core.workflow import Workflow, step, Event, StartEvent, StopEvent
+from llama_index.core.workflow import Workflow, step, StartEvent, StopEvent
 from llama_index.core import Document
 from app.models.schemas import Message, Fact
-
-
-class ExtractionCompleteEvent(Event):
-    """Event triggered when extraction is complete"""
-    facts: List[Fact]
 
 
 class ContextExtractionWorkflow(Workflow):
@@ -20,17 +15,17 @@ class ContextExtractionWorkflow(Workflow):
         self.client = Anthropic(api_key=anthropic_api_key)
 
     @step
-    async def extract_facts(self, ev: StartEvent) -> ExtractionCompleteEvent:
+    async def extract_facts(self, ev: StartEvent) -> StopEvent:
         """Use Claude to extract memorable facts from conversation"""
         message: Message = ev.get("message")
 
         # Skip extraction for very short messages
         if len(message.text.strip()) < 10:
-            return ExtractionCompleteEvent(facts=[])
+            return StopEvent(result=[])
 
         # Only extract from user messages (not AI responses)
         if not message.isUser:
-            return ExtractionCompleteEvent(facts=[])
+            return StopEvent(result=[])
 
         prompt = f"""Extract user preferences, facts, and context from this conversation message.
 Focus on:
@@ -93,12 +88,12 @@ Return JSON array only, no other text:"""
                     timestamp=message.timestamp
                 ))
 
-            return ExtractionCompleteEvent(facts=facts)
+            return StopEvent(result=facts)
 
         except Exception as e:
             print(f"Error extracting facts: {e}")
             # Fallback: simple extraction
-            return ExtractionCompleteEvent(facts=self._simple_extraction(message))
+            return StopEvent(result=self._simple_extraction(message))
 
     def _simple_extraction(self, message: Message) -> List[Fact]:
         """Fallback simple extraction without AI"""
@@ -132,11 +127,8 @@ async def extract_context(message: Message, anthropic_api_key: str) -> List[Fact
     # Run workflow
     result = await workflow.run(message=message)
 
-    # The result will be the last event, which is ExtractionCompleteEvent
-    if hasattr(result, 'facts'):
-        facts = result.facts
-    else:
-        facts = []
+    # The result is from StopEvent
+    facts = result if isinstance(result, list) else []
 
     print(f"Extracted {len(facts)} facts in {time.time() - start_time:.2f}s")
 

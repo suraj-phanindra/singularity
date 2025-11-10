@@ -55,7 +55,11 @@ class ContextRetrievalAgent:
         """Retrieve semantically relevant context"""
 
         if not self.facts_cache:
+            print("[Retrieval] No facts in cache")
             return []
+
+        print(f"[Retrieval] Query: '{query}' from platform: {platform}")
+        print(f"[Retrieval] Total facts in cache: {len(self.facts_cache)}")
 
         # Get query embedding
         query_embedding = self._get_embedding(query)
@@ -65,10 +69,13 @@ class ContextRetrievalAgent:
         for i, fact in enumerate(self.facts_cache):
             # Skip facts from the same platform
             if fact.get('platform') == platform:
+                print(f"[Retrieval] Skipping fact from same platform: {fact.get('text')}")
                 continue
 
             fact_embedding = self.embeddings_cache[i]
             similarity = self._cosine_similarity(query_embedding, fact_embedding)
+
+            print(f"[Retrieval] Fact: '{fact.get('text')}' | Similarity: {similarity:.4f}")
 
             similarities.append({
                 'fact': fact,
@@ -83,8 +90,10 @@ class ContextRetrievalAgent:
         context = []
         for result in top_results:
             if result['similarity'] > 0.5:  # Threshold for relevance
+                print(f"[Retrieval] Including: '{result['fact']['text']}' (similarity: {result['similarity']:.4f})")
                 context.append(result['fact']['text'])
 
+        print(f"[Retrieval] Returning {len(context)} context items")
         return context
 
     async def understand_query(self, query: str) -> Dict:

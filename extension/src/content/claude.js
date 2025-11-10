@@ -1,7 +1,13 @@
-import { PLATFORMS } from '../utils/platform-config.js';
-
+// Content script for Claude.ai - self-contained (no imports)
 const PLATFORM_NAME = 'Claude';
-const config = PLATFORMS['claude.ai'];
+const config = {
+  name: 'Claude',
+  inputSelector: 'div[contenteditable="true"]',
+  messageContainerSelector: '[data-testid*="message"]',
+  userMessageSelector: '[data-testid="user-message"]',
+  assistantMessageSelector: '[data-testid*="message"]:not([data-testid="user-message"])',
+  submitButtonSelector: 'button[aria-label*="Send"]',
+};
 
 console.log('[Singularity] Content script loaded for Claude.ai');
 
@@ -49,7 +55,7 @@ async function extractNewMessages(allMessages) {
 
   for (const messageElement of newMessages) {
     const text = messageElement.innerText || messageElement.textContent;
-    const isUser = messageElement.closest('[data-test-render-count]') !== null;
+    const isUser = messageElement.getAttribute('data-testid') === 'user-message';
 
     if (text && text.trim().length > 0) {
       const message = {
