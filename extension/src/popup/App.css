@@ -152,11 +152,40 @@ body {
   padding: 32px 16px;
 }
 
+.fact-list-container {
+  max-height: 300px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+}
+
+.fact-list-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.fact-list-container::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+}
+
+.fact-list-container::-webkit-scrollbar-thumb {
+  background: rgba(96, 165, 250, 0.3);
+  border-radius: 3px;
+}
+
+.fact-list-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(96, 165, 250, 0.5);
+}
+
 .fact-list {
   list-style: none;
 }
 
 .fact-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 6px;
@@ -168,6 +197,11 @@ body {
 .fact-item:hover {
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(96, 165, 250, 0.3);
+}
+
+.fact-content {
+  flex: 1;
+  min-width: 0;
 }
 
 .fact-text {
@@ -230,4 +264,26 @@ body {
 .btn-danger:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.delete-btn {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border-radius: 4px;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.delete-btn:hover {
+  background: rgba(239, 68, 68, 0.4);
+  transform: scale(1.1);
 }

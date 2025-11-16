@@ -55,12 +55,22 @@ async function extractNewMessages(allMessages) {
 
   for (const messageElement of newMessages) {
     const role = messageElement.getAttribute('data-message-author-role');
-    const text = messageElement.innerText || messageElement.textContent;
+    let text = messageElement.innerText || messageElement.textContent;
 
     if (text && text.trim().length > 0) {
+      // Strip injected context to avoid extracting facts from it
+      // Format: [Context from other AI conversations: <context>]\n\n<original message>
+      const contextPattern = /^\[Context from other AI conversations:[^\]]+\]\s*/;
+      const originalText = text.replace(contextPattern, '');
+
+      if (originalText.trim().length === 0) {
+        console.log('[Singularity] Skipping message that only contains injected context');
+        continue;
+      }
+
       const message = {
         platform: PLATFORM_NAME,
-        text: text.trim(),
+        text: originalText.trim(),
         isUser: role === 'user',
         timestamp: new Date().toISOString(),
         url: window.location.href
@@ -72,7 +82,7 @@ async function extractNewMessages(allMessages) {
           action: 'extractContext',
           message: message
         });
-        console.log('[Singularity] Sent message for extraction:', message);
+        console.log('[Singularity] Sent message for extraction (context stripped):', message);
       } catch (error) {
         console.error('[Singularity] Failed to send message:', error);
       }
@@ -148,12 +158,38 @@ function setupInputInterception() {
           }
         }, 500);
       } else {
-        isProcessing = false;
-        console.log('[Singularity] No context to inject');
+        console.log('[Singularity] No context to inject, sending original message');
+
+        // No context to inject, but we still need to send the message
+        // Prevent the original event since we already blocked it
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+
+        // Submit the original message
+        setTimeout(() => {
+          isProcessing = false;
+          const submitBtn = document.querySelector(config.submitButtonSelector);
+          if (submitBtn && !submitBtn.disabled) {
+            submitBtn.click();
+          }
+        }, 100);
       }
     } catch (error) {
-      isProcessing = false;
       console.error('[Singularity] Failed to inject context:', error);
+
+      // On error, still send the original message
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+
+      setTimeout(() => {
+        isProcessing = false;
+        const submitBtn = document.querySelector(config.submitButtonSelector);
+        if (submitBtn && !submitBtn.disabled) {
+          submitBtn.click();
+        }
+      }, 100);
     }
   };
 

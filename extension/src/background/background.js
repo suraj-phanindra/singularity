@@ -5,6 +5,7 @@ import {
   getAllFacts,
   getRecentFacts,
   getFactCount,
+  deleteFact,
   clearAllData
 } from '../utils/storage.js';
 
@@ -45,6 +46,9 @@ async function handleMessage(message, sender) {
 
     case 'toggleExtension':
       return await handleToggleExtension(message.enabled);
+
+    case 'deleteFact':
+      return await handleDeleteFact(message.factId);
 
     case 'clearAllContext':
       return await handleClearAllContext();
@@ -173,7 +177,7 @@ async function handleGetRelevantContext(query, platform) {
 async function handleGetContextStats() {
   try {
     const count = await getFactCount();
-    const recentFacts = await getRecentFacts(10);
+    const recentFacts = await getRecentFacts(50); // Increased from 10 to 50 for better management
 
     return {
       count,
@@ -206,11 +210,44 @@ async function handleToggleExtension(enabled) {
   return { success: true };
 }
 
+// Delete a specific fact
+async function handleDeleteFact(factId) {
+  try {
+    await deleteFact(factId);
+    console.log(`[Singularity] Deleted fact with ID: ${factId}`);
+    return { success: true };
+  } catch (error) {
+    console.error('[Singularity] Failed to delete fact:', error);
+    return { success: false, error: error.message };
+  }
+}
+
 // Clear all context
 async function handleClearAllContext() {
   try {
+    // Clear IndexedDB
     await clearAllData();
-    console.log('[Singularity] All context cleared');
+    console.log('[Singularity] IndexedDB context cleared');
+
+    // Clear backend cache
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/clear`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (response.ok) {
+        console.log('[Singularity] Backend cache cleared');
+      } else {
+        console.warn('[Singularity] Failed to clear backend cache');
+      }
+    } catch (backendError) {
+      console.warn('[Singularity] Backend not available for cache clearing:', backendError);
+      // Don't fail if backend is offline
+    }
+
     return { success: true };
   } catch (error) {
     console.error('[Singularity] Failed to clear context:', error);

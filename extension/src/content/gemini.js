@@ -76,15 +76,25 @@ async function extractNewMessages(allMessages) {
   const newMessages = Array.from(allMessages).slice(lastProcessedMessageCount);
 
   for (const messageElement of newMessages) {
-    const text = messageElement.innerText || messageElement.textContent;
+    let text = messageElement.innerText || messageElement.textContent;
 
     // Determine if it's a user or model message
     const isUser = isUserMessage(messageElement);
 
     if (text && text.trim().length > 0) {
+      // Strip injected context to avoid extracting facts from it
+      // Format: [Context from other AI conversations: <context>]\n\n<original message>
+      const contextPattern = /^\[Context from other AI conversations:[^\]]+\]\s*/;
+      const originalText = text.replace(contextPattern, '');
+
+      if (originalText.trim().length === 0) {
+        console.log('[Singularity] Skipping message that only contains injected context');
+        continue;
+      }
+
       const message = {
         platform: PLATFORM_NAME,
-        text: text.trim(),
+        text: originalText.trim(),
         isUser: isUser,
         timestamp: new Date().toISOString(),
         url: window.location.href
@@ -96,7 +106,7 @@ async function extractNewMessages(allMessages) {
           action: 'extractContext',
           message: message
         });
-        console.log('[Singularity] Sent message for extraction:', message);
+        console.log('[Singularity] Sent message for extraction (context stripped):', message);
       } catch (error) {
         console.error('[Singularity] Failed to send message:', error);
       }
@@ -146,7 +156,18 @@ function setupInputInterception() {
         const userMessage = extractUserInput(inputField);
         if (!userMessage || userMessage.trim().length === 0) return;
 
+        // Check if already enhanced to avoid infinite loop
+        if (userMessage.includes('[Context from other AI conversations:')) {
+          // Remove the hook marker so it can be re-hooked after this message
+          delete submitButton.dataset.singularityHooked;
+          return;
+        }
+
         console.log('[Singularity] User is sending:', userMessage);
+
+        // Prevent the default submit - we'll resubmit after checking for context
+        event.preventDefault();
+        event.stopPropagation();
 
         // Get relevant context from other platforms
         try {
@@ -159,23 +180,40 @@ function setupInputInterception() {
           if (response && response.context && response.context.length > 0) {
             console.log('[Singularity] Injecting context:', response.context);
 
-            // Inject context into the message
-            event.preventDefault();
-            event.stopPropagation();
-
             const contextPrefix = `[Context from other AI conversations: ${response.context.join('; ')}]\n\n`;
             const enhancedMessage = contextPrefix + userMessage;
 
             // Set the enhanced message
             setUserInput(inputField, enhancedMessage);
 
+            // Remove hook marker so button can be re-hooked after this message
+            delete submitButton.dataset.singularityHooked;
+
             // Click submit again after a brief delay
+            setTimeout(() => {
+              submitButton.click();
+            }, 100);
+          } else {
+            console.log('[Singularity] No context to inject, sending original message');
+
+            // No context, just send the original message
+            // Remove hook marker so button can be re-hooked for next message
+            delete submitButton.dataset.singularityHooked;
+
             setTimeout(() => {
               submitButton.click();
             }, 100);
           }
         } catch (error) {
           console.error('[Singularity] Failed to inject context:', error);
+
+          // On error, still send the original message
+          // Remove hook marker so button can be re-hooked for next message
+          delete submitButton.dataset.singularityHooked;
+
+          setTimeout(() => {
+            submitButton.click();
+          }, 100);
         }
       }, { capture: true, once: true });
     }

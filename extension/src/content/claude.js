@@ -29,24 +29,45 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 // Monitor DOM for new messages
 function observeConversation() {
-  const observer = new MutationObserver((mutations) => {
-    if (!isEnabled) return;
+  // Wait for chat container to exist
+  const waitForContainer = setInterval(() => {
+    const container = document.body;
+    if (container) {
+      clearInterval(waitForContainer);
 
-    // Check for new messages
-    const messages = document.querySelectorAll(config.messageContainerSelector);
-    if (messages.length > lastProcessedMessageCount) {
-      extractNewMessages(messages);
-      lastProcessedMessageCount = messages.length;
+      // Initialize the count with current messages
+      const currentMessages = document.querySelectorAll(config.messageContainerSelector);
+      lastProcessedMessageCount = currentMessages.length;
+      console.log(`[Singularity] Starting observation with ${lastProcessedMessageCount} existing messages`);
+
+      const observer = new MutationObserver((mutations) => {
+        if (!isEnabled) return;
+
+        // Check for new messages
+        const messages = document.querySelectorAll(config.messageContainerSelector);
+        console.log(`[Singularity] Mutation detected. Current: ${messages.length}, Last: ${lastProcessedMessageCount}`);
+
+        if (messages.length > lastProcessedMessageCount) {
+          console.log(`[Singularity] New messages detected! Processing ${messages.length - lastProcessedMessageCount} new message(s)`);
+          extractNewMessages(messages);
+          lastProcessedMessageCount = messages.length;
+        }
+      });
+
+      // Start observing the document body
+      observer.observe(container, {
+        childList: true,
+        subtree: true,
+        attributes: false,
+        characterData: false
+      });
+
+      console.log('[Singularity] Started observing Claude.ai conversation');
     }
-  });
+  }, 100);
 
-  // Start observing the document body
-  observer.observe(document.body, {
-    childList: true,
-    subtree: true
-  });
-
-  console.log('[Singularity] Started observing Claude.ai conversation');
+  // Clear interval after 10 seconds to prevent infinite waiting
+  setTimeout(() => clearInterval(waitForContainer), 10000);
 }
 
 // Extract new messages from the conversation

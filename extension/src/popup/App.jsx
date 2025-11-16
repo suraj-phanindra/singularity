@@ -12,7 +12,20 @@ function App() {
 
     // Load context count from storage
     loadContextData();
+
+    // Load enabled state from storage
+    loadEnabledState();
   }, []);
+
+  const loadEnabledState = async () => {
+    try {
+      const result = await chrome.storage.local.get(['enabled']);
+      // Default to true if not set
+      setIsEnabled(result.enabled !== false);
+    } catch (error) {
+      console.error('Failed to load enabled state:', error);
+    }
+  };
 
   const checkBackendStatus = async () => {
     try {
@@ -65,6 +78,20 @@ function App() {
     }
   };
 
+  const deleteSingleFact = async (factId) => {
+    if (confirm('Delete this context item?')) {
+      const response = await chrome.runtime.sendMessage({
+        action: 'deleteFact',
+        factId: factId
+      });
+
+      if (response.success) {
+        // Reload context data
+        await loadContextData();
+      }
+    }
+  };
+
   const getStatusColor = () => {
     switch (backendStatus) {
       case 'connected': return '#4ade80';
@@ -111,21 +138,32 @@ function App() {
       </div>
 
       <div className="recent-facts">
-        <h3>Recent Context</h3>
+        <h3>Manage Context & Memories</h3>
         {recentFacts.length === 0 ? (
           <p className="empty-state">No context captured yet</p>
         ) : (
-          <ul className="fact-list">
-            {recentFacts.slice(0, 5).map((fact, index) => (
-              <li key={index} className="fact-item">
-                <div className="fact-text">{fact.text}</div>
-                <div className="fact-meta">
-                  <span className="fact-platform">{fact.platform}</span>
-                  <span className="fact-time">{formatTime(fact.timestamp)}</span>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <div className="fact-list-container">
+            <ul className="fact-list">
+              {recentFacts.map((fact, index) => (
+                <li key={fact.id || index} className="fact-item">
+                  <div className="fact-content">
+                    <div className="fact-text">{fact.text}</div>
+                    <div className="fact-meta">
+                      <span className="fact-platform">{fact.platform}</span>
+                      <span className="fact-time">{formatTime(fact.timestamp)}</span>
+                    </div>
+                  </div>
+                  <button
+                    className="delete-btn"
+                    onClick={() => deleteSingleFact(fact.id)}
+                    title="Delete this fact"
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </div>
 

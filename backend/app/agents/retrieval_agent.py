@@ -13,14 +13,59 @@ class ContextRetrievalAgent:
         self.facts_cache = []  # In-memory cache for MVP
         self.embeddings_cache = []  # Cached embeddings
 
-    def add_facts(self, facts: List[Dict]):
-        """Add facts to the in-memory store"""
+    def add_facts(self, facts: List[Dict]) -> List[Dict]:
+        """Add facts to the in-memory store with deduplication
+
+        Returns:
+            List of facts that were actually added (after deduplication)
+        """
+        added_facts = []
+
         for fact in facts:
-            if fact not in self.facts_cache:
-                self.facts_cache.append(fact)
-                # Generate embedding for the fact
-                embedding = self._get_embedding(fact['text'])
-                self.embeddings_cache.append(embedding)
+            # Check for exact duplicates
+            if fact in self.facts_cache:
+                print(f"[Retrieval] Skipping exact duplicate: {fact.get('text')}")
+                continue
+
+            # Check for semantic duplicates
+            if self._is_semantically_duplicate(fact):
+                print(f"[Retrieval] Skipping semantically similar fact: {fact.get('text')}")
+                continue
+
+            # Add new unique fact
+            self.facts_cache.append(fact)
+            # Generate embedding for the fact
+            embedding = self._get_embedding(fact['text'])
+            self.embeddings_cache.append(embedding)
+            added_facts.append(fact)
+            print(f"[Retrieval] Added new fact: {fact.get('text')}")
+
+        return added_facts
+
+    def _is_semantically_duplicate(self, new_fact: Dict, threshold: float = 0.85) -> bool:
+        """Check if a fact is semantically similar to any existing fact"""
+        if not self.facts_cache:
+            return False
+
+        # Get embedding for new fact
+        new_embedding = self._get_embedding(new_fact['text'])
+
+        # Compare with all existing facts
+        for i, existing_fact in enumerate(self.facts_cache):
+            existing_embedding = self.embeddings_cache[i]
+            similarity = self._cosine_similarity(new_embedding, existing_embedding)
+
+            if similarity > threshold:
+                print(f"[Retrieval] Found similar fact (similarity: {similarity:.4f}): '{existing_fact.get('text')}' vs '{new_fact.get('text')}'")
+                return True
+
+        return False
+
+    def clear_cache(self):
+        """Clear all cached facts and embeddings"""
+        self.facts_cache.clear()
+        self.embeddings_cache.clear()
+        print("[Retrieval] Cache cleared")
 
     def _get_embedding(self, text: str) -> np.ndarray:
         """Get embedding for text using Voyage AI"""
@@ -89,7 +134,7 @@ class ContextRetrievalAgent:
         # Filter by minimum similarity threshold
         context = []
         for result in top_results:
-            if result['similarity'] > 0.5:  # Threshold for relevance
+            if result['similarity'] > 0.51:  # Threshold for relevance
                 print(f"[Retrieval] Including: '{result['fact']['text']}' (similarity: {result['similarity']:.4f})")
                 context.append(result['fact']['text'])
 

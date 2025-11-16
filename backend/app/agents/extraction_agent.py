@@ -35,10 +35,16 @@ Focus on:
 - Goals and intentions
 - Factual statements about the user
 
+IMPORTANT FORMAT RULES:
+- Use DIRECT, CONCISE phrasing (3-6 words maximum)
+- DO NOT use "user has", "user is", "user wants" prefixes
+- Examples of GOOD facts: "likes SUVs", "allergic to eggs", "prefers vegetarian food", "seeking movie recommendations"
+- Examples of BAD facts: "user has interest in movies", "user is looking for breakfast ideas"
+
 Return ONLY a JSON array with this structure:
 [
   {{
-    "text": "concise statement of the fact",
+    "text": "concise fact without 'user' prefix",
     "category": "preference|biographical|interest|opinion|goal|fact",
     "confidence": 0.0-1.0,
     "entities": ["relevant", "entities"]

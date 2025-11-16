@@ -55,16 +55,25 @@ async def extract_endpoint(request: ExtractionRequest):
         # Extract facts
         facts = await extract_context(request.message, anthropic_key)
 
-        # Add facts to retrieval agent cache
+        # Add facts to retrieval agent cache (with deduplication)
+        # Only return facts that were actually added after deduplication
+        added_facts = []
         if retrieval_agent:
             facts_dict = [fact.dict() for fact in facts]
-            retrieval_agent.add_facts(facts_dict)
+            added_facts_dict = retrieval_agent.add_facts(facts_dict)
+
+            # Convert back to Fact objects
+            from app.models.schemas import Fact
+            added_facts = [Fact(**fact_dict) for fact_dict in added_facts_dict]
+        else:
+            # If no retrieval agent, return all extracted facts
+            added_facts = facts
 
         processing_time = time.time() - start_time
 
         return ExtractionResponse(
             success=True,
-            facts=facts,
+            facts=added_facts,  # Return only deduplicated facts
             processingTime=processing_time
         )
 
@@ -95,4 +104,18 @@ async def retrieve_endpoint(request: RetrievalRequest):
 
     except Exception as e:
         print(f"Retrieval error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/api/clear")
+async def clear_cache_endpoint():
+    """Clear backend cache (facts and embeddings)"""
+    try:
+        if retrieval_agent:
+            retrieval_agent.clear_cache()
+            return {"success": True, "message": "Backend cache cleared"}
+        else:
+            return {"success": True, "message": "No cache to clear"}
+    except Exception as e:
+        print(f"Clear cache error: {e}")
         raise HTTPException(status_code=500, detail=str(e))

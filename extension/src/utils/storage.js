@@ -153,6 +153,19 @@ export async function getFactCount() {
   });
 }
 
+// Delete a specific fact by ID
+export async function deleteFact(factId) {
+  const database = await getDB();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction([STORE_FACTS], 'readwrite');
+    const store = transaction.objectStore(STORE_FACTS);
+    const request = store.delete(factId);
+
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
 // Clear all data
 export async function clearAllData() {
   const database = await getDB();
